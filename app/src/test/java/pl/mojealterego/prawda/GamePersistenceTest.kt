@@ -1,7 +1,7 @@
 package pl.mojealterego.prawda
 
-import androidx.test.core.app.ApplicationProvider
 import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -9,8 +9,10 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class GamePersistenceTest {
     private lateinit var context: Context
 
@@ -21,16 +23,32 @@ class GamePersistenceTest {
 
     @Test fun activeSessionRoundTripsIncludingScoresAndCurrentCard() {
         val card = Prompt("custom-x", "Treść", PromptKind.DARE, Intensity.BOLD, 4)
-        val state = GameState(players = listOf(Player("A", 5), Player("B", 2)), activePlayer = 1, mode = GameMode.ROYAL, intensity = Intensity.BOLD, currentPrompt = card, history = setOf("d01", "custom-x"), round = 8, customPrompts = listOf(card))
+        val state = GameState(
+            players = listOf(Player("A", 5), Player("B", 2)),
+            activePlayer = 1,
+            mode = GameMode.ROYAL,
+            intensity = Intensity.BOLD,
+            currentPrompt = card,
+            history = setOf("d01", "custom-x"),
+            round = 8,
+            customPrompts = listOf(card)
+        )
+
         GamePersistence.save(context, state, true)
         val restored = GamePersistence.load(context)
+
         assertNotNull(restored)
         assertEquals(state, restored)
     }
 
     @Test fun customDeckPersistsAfterSessionEnds() {
         val card = Prompt("custom-y", "Moja karta", PromptKind.TRUTH, Intensity.EASY, 2)
-        GamePersistence.save(context, GameState(players = listOf(Player("A")), customPrompts = listOf(card)), false)
+        GamePersistence.save(
+            context,
+            GameState(players = listOf(Player("A")), customPrompts = listOf(card)),
+            false
+        )
+
         assertNull(GamePersistence.load(context))
         assertEquals(listOf(card), GamePersistence.loadCustomPrompts(context))
     }

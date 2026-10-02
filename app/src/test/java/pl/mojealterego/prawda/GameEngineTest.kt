@@ -32,11 +32,16 @@ class GameEngineTest {
         assertEquals(1, GameEngine.nextPlayer(initial).activePlayer)
         assertEquals(0, GameEngine.nextPlayer(GameEngine.nextPlayer(initial)).activePlayer)
     }
+
     @Test fun exhaustedDeckRecyclesInsteadOfReturningAnEmptyCard() {
-        var state = GameState(players = listOf(Player("A")))
+        var state = GameState(
+            players = listOf(Player("A")),
+            intensity = Intensity.BOLD
+        )
         repeat(20) { state = GameEngine.draw(state, PromptKind.TRUTH, Random(it)) }
         assertNotNull(state.currentPrompt)
         assertEquals(20, state.history.size)
+
         val recycled = GameEngine.draw(state, PromptKind.TRUTH, Random(21))
         assertNotNull(recycled.currentPrompt)
         assertEquals(1, recycled.history.size)
@@ -59,8 +64,16 @@ class GameEngineTest {
 
     @Test fun customPromptCanBeDrawnAndRecorded() {
         val custom = Prompt("user-1", "Własne pytanie", PromptKind.TRUTH, Intensity.EASY, 3)
-        val state = GameState(players = listOf(Player("A")), customPrompts = listOf(custom))
+        val usedBuiltInEasyTruths = setOf("t01", "t02", "t03", "t09", "t10", "t11", "t12")
+        val state = GameState(
+            players = listOf(Player("A")),
+            intensity = Intensity.EASY,
+            history = usedBuiltInEasyTruths,
+            customPrompts = listOf(custom)
+        )
+
         val draw = GameEngine.draw(state, PromptKind.TRUTH, Random(4))
+
         assertEquals(custom, draw.currentPrompt)
         assertTrue("user-1" in draw.history)
     }
@@ -71,5 +84,4 @@ class GameEngineTest {
         val draw = GameEngine.draw(state, PromptKind.TRUTH, Random(7))
         assertNotEquals("user-bold", draw.currentPrompt?.id)
     }
-
 }
