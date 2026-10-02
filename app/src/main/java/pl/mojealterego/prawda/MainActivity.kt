@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PrawdaApp() {
     val context = LocalContext.current
-    var state by remember { mutableStateOf(GamePersistence.load(context) ?: GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")))) }
+    var state by remember(context) { mutableStateOf(GamePersistence.load(context) ?: GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")), customPrompts = GamePersistence.loadCustomPrompts(context))) }
     var started by remember { mutableStateOf(GamePersistence.load(context) != null) }
     val names = remember { mutableStateListOf("Gracz 1", "Gracz 2") }
     var newName by remember { mutableStateOf("") }
@@ -104,7 +104,7 @@ private fun PrawdaApp() {
                         }) { Text("Dodaj", color = Gold) }
                     }
                     GoldButton("ROZPOCZNIJ GRĘ", Modifier.fillMaxWidth()) {
-                        state = GameState(players = names.map { Player(it) })
+                        state = GameState(players = names.map { Player(it) }, customPrompts = state.customPrompts)
                         started = true
                     }
                 }
