@@ -47,23 +47,59 @@ object GameEngine {
         Prompt("d06","Opowiedz krótką historię, używając trzech słów wskazanych przez grupę.",PromptKind.DARE,Intensity.MEDIUM),
         Prompt("d07","Zaśpiewaj refren dowolnej piosenki przez 15 sekund albo wybierz inne zadanie.",PromptKind.DARE,Intensity.BOLD,2),
         Prompt("d08","Przez jedną rundę prowadź komentarz sportowy do zwykłych czynności grupy.",PromptKind.DARE,Intensity.BOLD,2),
+        Prompt("t09","Jakiej umiejętności nauczyłeś się samodzielnie?",PromptKind.TRUTH,Intensity.EASY),
+        Prompt("t10","Jaki drobiazg potrafi poprawić Ci humor?",PromptKind.TRUTH,Intensity.EASY),
+        Prompt("t11","Które miejsce chcesz kiedyś odwiedzić?",PromptKind.TRUTH,Intensity.EASY),
+        Prompt("t12","Jaka piosenka najlepiej opisuje Twój dzisiejszy nastrój?",PromptKind.TRUTH,Intensity.EASY),
+        Prompt("t13","Z czego ostatnio jesteś szczególnie dumny lub dumna?",PromptKind.TRUTH,Intensity.MEDIUM),
+        Prompt("t14","Jaką radę z przeszłości pamiętasz do dziś?",PromptKind.TRUTH,Intensity.MEDIUM),
+        Prompt("t15","Co najczęściej odkładasz na później?",PromptKind.TRUTH,Intensity.MEDIUM),
+        Prompt("t16","Jaki zwyczaj chciałbyś lub chciałabyś wprowadzić do codzienności?",PromptKind.TRUTH,Intensity.MEDIUM),
+        Prompt("t17","Jakie przekonanie zmieniło się u Ciebie z biegiem lat?",PromptKind.TRUTH,Intensity.BOLD,2),
+        Prompt("t18","W jakiej sytuacji najtrudniej poprosić Ci o pomoc?",PromptKind.TRUTH,Intensity.BOLD,2),
+        Prompt("t19","Co chciałbyś lub chciałabyś częściej mówić bliskim osobom?",PromptKind.TRUTH,Intensity.BOLD,2),
+        Prompt("t20","Jaki błąd nauczył Cię czegoś ważnego?",PromptKind.TRUTH,Intensity.BOLD,2),
+        Prompt("d09","Wymyśl tytuł filmu o dzisiejszym spotkaniu.",PromptKind.DARE,Intensity.EASY),
+        Prompt("d10","Przez 20 sekund przedstaw prognozę pogody dla tego pokoju.",PromptKind.DARE,Intensity.EASY),
+        Prompt("d11","Wskaż przedmiot w pobliżu i opisz go jak eksponat muzealny.",PromptKind.DARE,Intensity.EASY),
+        Prompt("d12","Zrób minę przedstawiającą wybraną emocję, a reszta zgaduje.",PromptKind.DARE,Intensity.EASY),
+        Prompt("d13","Wymyśl krótki jingiel dla drużyny.",PromptKind.DARE,Intensity.MEDIUM),
+        Prompt("d14","Opowiedz bajkę w trzech zdaniach, w której występuje kubek.",PromptKind.DARE,Intensity.MEDIUM),
+        Prompt("d15","Przez następną kolejkę odpowiadaj jak detektyw z filmu noir.",PromptKind.DARE,Intensity.MEDIUM),
+        Prompt("d16","Narysuj palcem w powietrzu logo fikcyjnej firmy i je zaprezentuj.",PromptKind.DARE,Intensity.MEDIUM),
+        Prompt("d17","Zagraj bez słów scenę z filmu wybranego przez grupę; możesz odmówić wyboru.",PromptKind.DARE,Intensity.BOLD,2),
+        Prompt("d18","Wymyśl i wygłoś 15-sekundową mowę motywacyjną dla drużyny.",PromptKind.DARE,Intensity.BOLD,2),
+        Prompt("d19","Przedstaw krótką scenkę, w której zwykły przedmiot ratuje świat.",PromptKind.DARE,Intensity.BOLD,2),
+        Prompt("d20","Zrób improwizowany wywiad z wybranym przedmiotem.",PromptKind.DARE,Intensity.BOLD,2),
         Prompt("r01","Królewski przywilej: wybierz osobę, która zdecyduje, czy następna runda będzie prawdą czy wyzwaniem.",PromptKind.DARE,Intensity.MEDIUM,2,true),
         Prompt("r02","Królewska karta: wskaż gracza, który otrzyma dodatkowy punkt za wykonanie wybranego przez siebie zadania.",PromptKind.DARE,Intensity.BOLD,2,true)
     )
 
     fun draw(state: GameState, kind: PromptKind, random: Random = Random): GameState {
-        val eligible = prompts.filter { prompt ->
+        fun available(history: Set<String>) = prompts.filter { prompt ->
             prompt.kind == kind &&
                 (state.mode == GameMode.CHAOS || prompt.intensity.ordinal <= state.intensity.ordinal) &&
                 (state.mode == GameMode.ROYAL || !prompt.royal) &&
-                prompt.id !in state.history
+                prompt.id !in history
         }
-        if (eligible.isEmpty()) return state.copy(currentPrompt = null)
-        val pool = if (state.mode == GameMode.ROYAL && kind == PromptKind.DARE) {
-            eligible + eligible.filter { it.royal }
-        } else eligible
+
+        var history = state.history
+        var eligible = available(history)
+        // Recycle the deck only after every eligible card of this type has been used.
+        if (eligible.isEmpty()) {
+            history = emptySet()
+            eligible = available(history)
+        }
+        if (eligible.isEmpty()) return state.copy(currentPrompt = null, history = history)
+
+        // Royal cards act as a 15% wildcard draw, rather than being duplicated in the pool.
+        val royalDraw = state.mode == GameMode.ROYAL &&
+            kind == PromptKind.DARE &&
+            eligible.any { it.royal } &&
+            random.nextFloat() < 0.15f
+        val pool = if (royalDraw) eligible.filter { it.royal } else eligible.filterNot { it.royal }.ifEmpty { eligible }
         val chosen = pool.random(random)
-        return state.copy(currentPrompt = chosen, history = state.history + chosen.id, round = state.round + 1)
+        return state.copy(currentPrompt = chosen, history = history + chosen.id, round = state.round + 1)
     }
 
     fun award(state: GameState, points: Int): GameState {
