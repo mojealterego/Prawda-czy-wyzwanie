@@ -8,9 +8,11 @@ import org.json.JSONObject
 object GamePersistence {
     private const val PREFS = "prawda_game_v1"
     private const val KEY_STATE = "active_state"
+    private const val KEY_DECK = "custom_deck"
 
     fun save(context: Context, state: GameState, inProgress: Boolean) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_DECK, JSONArray().apply { state.customPrompts.forEach { put(it.toJson()) } }.toString()).apply()
         if (!inProgress) {
             prefs.edit().remove(KEY_STATE).apply()
             return
@@ -29,6 +31,14 @@ object GamePersistence {
         })
         state.currentPrompt?.let { root.put("currentPrompt", it.toJson()) }
         prefs.edit().putString(KEY_STATE, root.toString()).apply()
+    }
+
+    fun loadCustomPrompts(context: Context): List<Prompt> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_DECK, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i -> runCatching { array.getJSONObject(i).toPrompt() }.getOrNull() }
+        }.getOrDefault(emptyList())
     }
 
     fun load(context: Context): GameState? {
