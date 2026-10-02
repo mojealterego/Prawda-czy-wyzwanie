@@ -117,7 +117,15 @@ private fun PrawdaApp() {
                     onExit = { started = false }
                 )
                 if (editorVisible) {
-                    PromptEditorDialog(onDismiss = { editorVisible = false }, onSave = { prompt -> state = state.copy(customPrompts = state.customPrompts + prompt); editorVisible = false })
+                    PromptEditorDialog(existing = state.customPrompts, onDismiss = { editorVisible = false },
+                        onDelete = { id -> state = state.copy(customPrompts = state.customPrompts.filterNot { it.id == id }) },
+                        onSave = { prompt ->
+                            val updated = state.customPrompts.toMutableList()
+                            val index = updated.indexOfFirst { it.id == prompt.id }
+                            if (index >= 0) updated[index] = prompt else updated.add(prompt)
+                            state = state.copy(customPrompts = updated)
+                            editorVisible = false
+                        })
                 }
                 if (safetyVisible) {
                     androidx.compose.material3.AlertDialog(
@@ -254,32 +262,41 @@ private fun OutlinedAction(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PromptEditorDialog(onDismiss: () -> Unit, onSave: (Prompt) -> Unit) {
+private fun PromptEditorDialog(existing: List<Prompt>, onDismiss: () -> Unit, onSave: (Prompt) -> Unit, onDelete: (String) -> Unit) {
     var text by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf(PromptKind.TRUTH) }
     var intensity by remember { mutableStateOf(Intensity.MEDIUM) }
     var points by remember { mutableStateOf("1") }
+    var editingId by remember { mutableStateOf<String?>(null) }
+    fun clearEditor() { text = ""; kind = PromptKind.TRUTH; intensity = Intensity.MEDIUM; points = "1"; editingId = null }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss, containerColor = Panel,
-        title = { Text("Nowa karta", color = Gold) },
+        title = { Text(if (editingId == null) "Własne karty" else "Edytuj kartę", color = Gold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = text, onValueChange = { text = it.take(240) }, label = { Text("Treść pytania lub zadania") }, minLines = 3)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChoicePill("Prawda", kind == PromptKind.TRUTH) { kind = PromptKind.TRUTH }
-                    ChoicePill("Wyzwanie", kind == PromptKind.DARE) { kind = PromptKind.DARE }
+                if (existing.isNotEmpty()) {
+                    Text("TALIA (${existing.size})", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    LazyColumn(modifier = Modifier.height(150.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        itemsIndexed(existing, key = { _, prompt -> prompt.id }) { _, prompt ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(prompt.text, color = Cream, fontSize = 12.sp, maxLines = 2)
+                                    Text("${if (prompt.kind == PromptKind.TRUTH) "Prawda" else "Wyzwanie"} · ${prompt.intensity.label} · ${prompt.points} pkt", color = Muted, fontSize = 10.sp)
+                                }
+                                TextButton(onClick = { editingId = prompt.id; text = prompt.text; kind = prompt.kind; intensity = prompt.intensity; points = prompt.points.toString() }) { Text("Edytuj", color = Gold, fontSize = 11.sp) }
+                                TextButton(onClick = { onDelete(prompt.id); if (editingId == prompt.id) clearEditor() }) { Text("Usuń", color = Muted, fontSize = 11.sp) }
+                            }
+                        }
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Intensity.entries.forEach { item -> ChoicePill(item.label, intensity == item) { intensity = item } }
-                }
+                Text(if (editingId == null) "DODAJ KARTĘ" else "TREŚĆ KARTY", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                OutlinedTextField(value = text, onValueChange = { text = it.take(240) }, label = { Text("Treść pytania lub zadania") }, minLines = 2)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { ChoicePill("Prawda", kind == PromptKind.TRUTH) { kind = PromptKind.TRUTH }; ChoicePill("Wyzwanie", kind == PromptKind.DARE) { kind = PromptKind.DARE } }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Intensity.entries.forEach { item -> ChoicePill(item.label, intensity == item) { intensity = item } } }
                 OutlinedTextField(value = points, onValueChange = { value -> points = value.filter(Char::isDigit).take(2) }, label = { Text("Punkty (1–10)") }, singleLine = true)
             }
         },
-        confirmButton = { TextButton(onClick = {
-            val clean = text.trim()
-            val score = points.toIntOrNull()?.coerceIn(1, 10) ?: 1
-            if (clean.isNotEmpty()) onSave(Prompt("custom_" + System.currentTimeMillis(), clean, kind, intensity, score))
-        }, enabled = text.isNotBlank()) { Text("Zapisz kartę", color = Gold) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj", color = Muted) } }
+        confirmButton = { TextButton(onClick = { val clean = text.trim(); val score = points.toIntOrNull()?.coerceIn(1, 10) ?: 1; if (clean.isNotEmpty()) onSave(Prompt(editingId ?: ("custom_" + System.currentTimeMillis()), clean, kind, intensity, score)) }, enabled = text.isNotBlank()) { Text(if (editingId == null) "Dodaj kartę" else "Zapisz zmiany", color = Gold) } },
+        dismissButton = { Row { if (editingId != null) TextButton(onClick = { clearEditor() }) { Text("Nowa", color = Gold) }; TextButton(onClick = onDismiss) { Text("Zamknij", color = Muted) } } }
     )
 }
