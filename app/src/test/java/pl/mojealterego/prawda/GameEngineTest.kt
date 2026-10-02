@@ -57,4 +57,19 @@ class GameEngineTest {
         }
     }
 
+    @Test fun customPromptCanBeDrawnAndRecorded() {
+        val custom = Prompt("user-1", "Własne pytanie", PromptKind.TRUTH, Intensity.EASY, 3)
+        val state = GameState(players = listOf(Player("A")), customPrompts = listOf(custom))
+        val draw = GameEngine.draw(state, PromptKind.TRUTH, Random(4))
+        assertEquals(custom, draw.currentPrompt)
+        assertTrue("user-1" in draw.history)
+    }
+
+    @Test fun customPromptRespectsKindAndIntensityFilters() {
+        val custom = Prompt("user-bold", "Odważne", PromptKind.TRUTH, Intensity.BOLD)
+        val state = GameState(players = listOf(Player("A")), customPrompts = listOf(custom), intensity = Intensity.EASY)
+        val draw = GameEngine.draw(state, PromptKind.TRUTH, Random(7))
+        assertNotEquals("user-bold", draw.currentPrompt?.id)
+    }
+
 }
