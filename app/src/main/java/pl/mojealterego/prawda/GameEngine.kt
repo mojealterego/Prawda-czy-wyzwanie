@@ -55,7 +55,7 @@ object GameEngine {
         val eligible = prompts.filter { prompt ->
             prompt.kind == kind &&
                 (state.mode == GameMode.CHAOS || prompt.intensity.ordinal <= state.intensity.ordinal) &&
-                (state.mode != GameMode.ROYAL || !prompt.royal || true) &&
+                (state.mode == GameMode.ROYAL || !prompt.royal) &&
                 prompt.id !in state.history
         }
         if (eligible.isEmpty()) return state.copy(currentPrompt = null)
