@@ -32,4 +32,29 @@ class GameEngineTest {
         assertEquals(1, GameEngine.nextPlayer(initial).activePlayer)
         assertEquals(0, GameEngine.nextPlayer(GameEngine.nextPlayer(initial)).activePlayer)
     }
+    @Test fun exhaustedDeckRecyclesInsteadOfReturningAnEmptyCard() {
+        var state = GameState(players = listOf(Player("A")))
+        repeat(20) { state = GameEngine.draw(state, PromptKind.TRUTH, Random(it)) }
+        assertNotNull(state.currentPrompt)
+        assertEquals(20, state.history.size)
+        val recycled = GameEngine.draw(state, PromptKind.TRUTH, Random(21))
+        assertNotNull(recycled.currentPrompt)
+        assertEquals(1, recycled.history.size)
+    }
+
+    @Test fun royalModeCanDrawRoyalCardsAndClassicCannot() {
+        val royal = GameState(players = listOf(Player("A")), mode = GameMode.ROYAL, intensity = Intensity.BOLD)
+        val classic = royal.copy(mode = GameMode.CLASSIC)
+        var sawRoyal = false
+        repeat(500) { seed ->
+            val draw = GameEngine.draw(royal.copy(history = emptySet()), PromptKind.DARE, Random(seed))
+            if (draw.currentPrompt?.royal == true) sawRoyal = true
+        }
+        assertTrue(sawRoyal)
+        repeat(100) { seed ->
+            val draw = GameEngine.draw(classic.copy(history = emptySet()), PromptKind.DARE, Random(seed))
+            assertFalse(draw.currentPrompt?.royal == true)
+        }
+    }
+
 }
