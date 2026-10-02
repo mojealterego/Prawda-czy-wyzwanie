@@ -24,7 +24,8 @@ data class GameState(
     val intensity: Intensity = Intensity.MEDIUM,
     val currentPrompt: Prompt? = null,
     val history: Set<String> = emptySet(),
-    val round: Int = 0
+    val round: Int = 0,
+    val customPrompts: List<Prompt> = emptyList()
 ) {
     val currentPlayer: Player? get() = players.getOrNull(activePlayer)
 }
@@ -76,7 +77,7 @@ object GameEngine {
     )
 
     fun draw(state: GameState, kind: PromptKind, random: Random = Random): GameState {
-        fun available(history: Set<String>) = prompts.filter { prompt ->
+        fun available(history: Set<String>) = (prompts + state.customPrompts).filter { prompt ->
             prompt.kind == kind &&
                 (state.mode == GameMode.CHAOS || prompt.intensity.ordinal <= state.intensity.ordinal) &&
                 (state.mode == GameMode.ROYAL || !prompt.royal) &&
