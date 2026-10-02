@@ -32,11 +32,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,11 +62,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun PrawdaApp() {
-    var started by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var state by remember { mutableStateOf(GamePersistence.load(context) ?: GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")))) }
+    var started by remember { mutableStateOf(GamePersistence.load(context) != null) }
     val names = remember { mutableStateListOf("Gracz 1", "Gracz 2") }
     var newName by remember { mutableStateOf("") }
-    var state by remember { mutableStateOf(GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")))) }
     var safetyVisible by remember { mutableStateOf(false) }
+    var editorVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state, started) { GamePersistence.save(context, state, started) }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Ink, contentColor = Cream) {
@@ -107,8 +113,12 @@ private fun PrawdaApp() {
                     state = state,
                     onState = { state = it },
                     onSafety = { safetyVisible = true },
+                    onEdit = { editorVisible = true },
                     onExit = { started = false }
                 )
+                if (editorVisible) {
+                    PromptEditorDialog(onDismiss = { editorVisible = false }, onSave = { prompt -> state = state.copy(customPrompts = state.customPrompts + prompt); editorVisible = false })
+                }
                 if (safetyVisible) {
                     androidx.compose.material3.AlertDialog(
                         onDismissRequest = { safetyVisible = false },
@@ -128,6 +138,7 @@ private fun GameScreen(
     state: GameState,
     onState: (GameState) -> Unit,
     onSafety: () -> Unit,
+    onEdit: () -> Unit,
     onExit: () -> Unit
 ) {
     Column(
@@ -139,6 +150,7 @@ private fun GameScreen(
                 Text("ROYAL EDITION", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 Text("Runda ${state.round + 1}", color = Muted, fontSize = 13.sp)
             }
+            TextButton(onClick = onEdit) { Text("Edytor", color = Gold) }
             TextButton(onClick = onSafety) { Text("Zasady", color = Gold) }
             TextButton(onClick = onExit) { Text("Wyjdź", color = Muted) }
         }
@@ -239,4 +251,35 @@ private fun OutlinedAction(label: String, onClick: () -> Unit) {
     TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Text(label, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
+}
+
+@Composable
+private fun PromptEditorDialog(onDismiss: () -> Unit, onSave: (Prompt) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf(PromptKind.TRUTH) }
+    var intensity by remember { mutableStateOf(Intensity.MEDIUM) }
+    var points by remember { mutableStateOf("1") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss, containerColor = Panel,
+        title = { Text("Nowa karta", color = Gold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = text, onValueChange = { text = it.take(240) }, label = { Text("Treść pytania lub zadania") }, minLines = 3)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoicePill("Prawda", kind == PromptKind.TRUTH) { kind = PromptKind.TRUTH }
+                    ChoicePill("Wyzwanie", kind == PromptKind.DARE) { kind = PromptKind.DARE }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Intensity.entries.forEach { item -> ChoicePill(item.label, intensity == item) { intensity = item } }
+                }
+                OutlinedTextField(value = points, onValueChange = { value -> points = value.filter(Char::isDigit).take(2) }, label = { Text("Punkty (1–10)") }, singleLine = true)
+            }
+        },
+        confirmButton = { TextButton(onClick = {
+            val clean = text.trim()
+            val score = points.toIntOrNull()?.coerceIn(1, 10) ?: 1
+            if (clean.isNotEmpty()) onSave(Prompt("custom_" + System.currentTimeMillis(), clean, kind, intensity, score))
+        }, enabled = text.isNotBlank()) { Text("Zapisz kartę", color = Gold) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj", color = Muted) } }
+    )
 }
