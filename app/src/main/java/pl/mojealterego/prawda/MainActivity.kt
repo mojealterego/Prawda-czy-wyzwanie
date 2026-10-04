@@ -46,11 +46,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Ink = Color(0xFF090909)
-private val Panel = Color(0xFF171614)
-private val Gold = Color(0xFFD7B56D)
-private val Muted = Color(0xFFB5B0A5)
-private val Cream = Color(0xFFF4EEDF)
+private val Ink = Color(0xFF07050A)
+private val Panel = Color(0xFF180C16)
+private val Gold = Color(0xFFE4C36F)
+private val Muted = Color(0xFFC7B8C3)
+private val Cream = Color(0xFFFFF4E3)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,18 +68,33 @@ private fun PrawdaApp() {
     var newName by remember { mutableStateOf("") }
     var safetyVisible by remember { mutableStateOf(false) }
     var editorVisible by remember { mutableStateOf(false) }
+    var adultConfirmed by remember { mutableStateOf(false) }
 
     LaunchedEffect(state, started) { GamePersistence.save(context, state, started) }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Ink, contentColor = Cream) {
-            if (!started) {
+            if (!adultConfirmed) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(28.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("EXPERIENCE OF ROYAL TRUTH", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(18.dp))
+                    Text("ROYAL 18+", color = Cream, fontSize = 42.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Gra dla pełnoletnich. Zawiera intymne pytania i wyzwania dla par. Każde zadanie jest dobrowolne i można je pominąć.", color = Muted, fontSize = 15.sp, textAlign = TextAlign.Center, lineHeight = 22.sp)
+                    Spacer(Modifier.height(28.dp))
+                    GoldButton("MAM 18 LAT LUB WIĘCEJ", Modifier.fillMaxWidth()) { adultConfirmed = true }
+                }
+            } else if (!started) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text("ROYAL EDITION", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
-                    Text("Prawda czy\nWyzwanie", color = Cream, fontSize = 38.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold)
+                    Text("EXPERIENCE OF ROYAL TRUTH", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+                    Text("Royal Truth\n& Dare", color = Cream, fontSize = 38.sp, lineHeight = 42.sp, fontWeight = FontWeight.SemiBold)
                     Text("Dodaj uczestników. Każdy może odmówić lub pominąć kartę bez tłumaczenia.", color = Muted, fontSize = 14.sp)
                     Text("GRACZE", color = Gold, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -154,7 +169,7 @@ private fun GameScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("ROYAL EDITION", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text("EXPERIENCE OF ROYAL TRUTH", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 Text("Runda ${state.round + 1}", color = Muted, fontSize = 13.sp)
             }
             TextButton(onClick = onEdit) { Text("Edytor", color = Gold) }
@@ -188,7 +203,7 @@ private fun GameScreen(
         ) { prompt ->
             Card(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF211E18)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2A101F)),
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
