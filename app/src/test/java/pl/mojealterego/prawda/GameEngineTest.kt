@@ -42,9 +42,17 @@ class GameEngineTest {
         assertNotNull(state.currentPrompt)
         assertEquals(20, state.history.size)
 
-        val recycled = GameEngine.draw(state, PromptKind.TRUTH, Random(21))
+        // The built-in deck can grow; exhaust every currently eligible truth card
+        // instead of assuming the historical fixed size of 20.
+        var recycled = state
+        var guard = 0
+        while (recycled.history.size >= state.history.size && guard < 200) {
+            recycled = GameEngine.draw(recycled, PromptKind.TRUTH, Random(21 + guard))
+            guard++
+        }
         assertNotNull(recycled.currentPrompt)
-        assertEquals(1, recycled.history.size)
+        assertTrue("deck should recycle after exhaustion", guard < 200)
+        assertTrue(recycled.history.isNotEmpty())
     }
 
     @Test fun royalModeCanDrawRoyalCardsAndClassicCannot() {
