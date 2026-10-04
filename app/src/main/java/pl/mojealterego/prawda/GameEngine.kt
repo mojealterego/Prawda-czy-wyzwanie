@@ -84,11 +84,15 @@ object GameEngine {
                 prompt.id !in history
         }
 
+        // History is shared by truth/dare cards. Recycle only IDs belonging to the
+        // requested kind so drawing one deck never erases progress in the other.
         var history = state.history
         var eligible = available(history)
-        // Recycle the deck only after every eligible card of this type has been used.
         if (eligible.isEmpty()) {
-            history = emptySet()
+            val idsForKind = (prompts + state.customPrompts)
+                .filter { it.kind == kind }
+                .mapTo(mutableSetOf()) { it.id }
+            history = history - idsForKind
             eligible = available(history)
         }
         if (eligible.isEmpty()) return state.copy(currentPrompt = null, history = history)
