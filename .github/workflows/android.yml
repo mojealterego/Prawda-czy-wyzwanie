@@ -41,6 +41,11 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
           grep -q "package: name='pl.mojealterego.prawda'" apk-badging.txt
           grep -q "application-label:'Experience of Royal Truth'" apk-badging.txt
+      - name: Verify APK archive integrity
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          unzip -t "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" >/dev/null
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
