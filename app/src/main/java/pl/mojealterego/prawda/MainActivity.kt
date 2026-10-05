@@ -2,6 +2,8 @@ package pl.mojealterego.prawda
 
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.media.AudioManager
+import android.media.ToneGenerator
 import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -219,8 +221,10 @@ private fun GameScreen(
     var secondsLeft by remember(state.currentPrompt?.id, state.pace) { mutableStateOf(state.pace.seconds) }
     var autoSpeak by remember { mutableStateOf(false) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    val tones = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 55) }
     var dice by remember { mutableStateOf<Int?>(null) }
     var targetIndex by remember { mutableStateOf<Int?>(null) }
+    DisposableEffect(Unit) { onDispose { tones.release() } }
     DisposableEffect(context) {
         lateinit var engine: TextToSpeech
         engine = TextToSpeech(context) { status ->
@@ -327,8 +331,8 @@ private fun GameScreen(
                 GoldButton("WYZWANIE", Modifier.weight(1f)) { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onState(GameEngine.draw(state, PromptKind.DARE)) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { dice = GameEngine.rollDice() }, modifier = Modifier.weight(1f)) { Text("🎲  KOŚĆ" + (dice?.let { "  $it" } ?: ""), color = Gold) }
-                TextButton(onClick = { targetIndex = GameEngine.pickTarget(state) }, modifier = Modifier.weight(1f)) { Text("♛  RULETKA CELU", color = Gold) }
+                TextButton(onClick = { dice = GameEngine.rollDice(); tones.startTone(ToneGenerator.TONE_PROP_BEEP, 90); haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }, modifier = Modifier.weight(1f)) { Text("🎲  KOŚĆ" + (dice?.let { "  $it" } ?: ""), color = Gold) }
+                TextButton(onClick = { targetIndex = GameEngine.pickTarget(state); tones.startTone(ToneGenerator.TONE_PROP_ACK, 120); haptics.performHapticFeedback(HapticFeedbackType.LongPress) }, modifier = Modifier.weight(1f)) { Text("♛  RULETKA CELU", color = Gold) }
             }
             OutlinedAction("KOŁO DECYZJI") {
                 val kind = if (kotlin.random.Random.nextBoolean()) PromptKind.TRUTH else PromptKind.DARE
@@ -339,6 +343,8 @@ private fun GameScreen(
                 OutlinedAction("POMIŃ") { onState(GameEngine.skip(state)); targetIndex = null; dice = null }
                 GoldButton("WYKONANO  +${state.currentPrompt?.points ?: 0}", Modifier.weight(1.5f)) {
                     val points = state.currentPrompt?.points ?: 0
+                    tones.startTone(ToneGenerator.TONE_PROP_ACK, 140)
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onState(GameEngine.nextPlayer(GameEngine.award(state, points)))
                     targetIndex = null
                     dice = null
