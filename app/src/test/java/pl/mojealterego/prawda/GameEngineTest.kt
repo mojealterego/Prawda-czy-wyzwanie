@@ -125,4 +125,28 @@ class GameEngineTest {
         val state = GameState(players = listOf(Player("Solo")), activePlayer = 0)
         assertEquals(0, GameEngine.pickTarget(state, Random(1)))
     }
+    @Test fun leaderboardSortsByScoreThenCompleted() {
+        val state = GameState(players = listOf(
+            Player("A", score = 4, completed = 1),
+            Player("B", score = 7, completed = 1),
+            Player("C", score = 7, completed = 3)
+        ))
+        assertEquals(listOf("C", "B", "A"), GameEngine.leaderboard(state).map { it.name })
+    }
+
+    @Test fun restartSessionKeepsPlayersAndSettingsButClearsProgress() {
+        val state = GameState(
+            players = listOf(Player("A", 9, 4, 1), Player("B", 2, 1, 2)),
+            mode = GameMode.ROYAL, intensity = Intensity.BOLD, round = 12,
+            history = setOf("t01"), streak = 3, bestStreak = 5, totalCompleted = 5, totalSkipped = 3
+        )
+        val reset = GameEngine.restartSession(state)
+        assertEquals(listOf(0, 0), reset.players.map { it.score })
+        assertEquals(GameMode.ROYAL, reset.mode)
+        assertEquals(Intensity.BOLD, reset.intensity)
+        assertEquals(0, reset.round)
+        assertTrue(reset.history.isEmpty())
+        assertEquals(0, reset.totalCompleted)
+        assertEquals(0, reset.totalSkipped)
+    }
 }
