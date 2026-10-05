@@ -244,4 +244,18 @@ object GameEngine {
         val candidates = state.players.indices.filter { it != state.activePlayer }
         return candidates.random(random)
     }
+    fun leaderboard(state: GameState): List<Player> =
+        state.players.sortedWith(compareByDescending<Player> { it.score }.thenByDescending { it.completed })
+
+    fun restartSession(state: GameState): GameState = state.copy(
+        players = state.players.map { it.copy(score = 0, completed = 0, skipped = 0) },
+        activePlayer = 0,
+        currentPrompt = null,
+        history = emptySet(),
+        round = 0,
+        streak = 0,
+        bestStreak = 0,
+        totalCompleted = 0,
+        totalSkipped = 0
+    )
 }
