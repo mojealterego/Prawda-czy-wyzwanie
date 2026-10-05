@@ -237,4 +237,11 @@ object GameEngine {
     }
 
     fun resetHistory(state: GameState): GameState = state.copy(history = emptySet(), currentPrompt = null)
+    fun rollDice(random: Random = Random): Int = random.nextInt(1, 7)
+
+    fun pickTarget(state: GameState, random: Random = Random): Int {
+        if (state.players.size <= 1) return state.activePlayer.coerceAtLeast(0)
+        val candidates = state.players.indices.filter { it != state.activePlayer }
+        return candidates.random(random)
+    }
 }
