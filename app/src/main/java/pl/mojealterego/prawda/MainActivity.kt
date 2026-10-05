@@ -9,7 +9,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +50,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +62,9 @@ private val Panel = Color(0xFF180C16)
 private val Gold = Color(0xFFE4C36F)
 private val Muted = Color(0xFFC7B8C3)
 private val Cream = Color(0xFFFFF4E3)
+private val RoyalRed = Color(0xFF7A1028)
+private val DeepRed = Color(0xFF26040D)
+private val Purple = Color(0xFF321052)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,6 +181,8 @@ private fun GameScreen(
     var secondsLeft by remember(state.currentPrompt?.id, state.pace) { mutableStateOf(state.pace.seconds) }
     var autoSpeak by remember { mutableStateOf(false) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var dice by remember { mutableStateOf<Int?>(null) }
+    var targetIndex by remember { mutableStateOf<Int?>(null) }
     DisposableEffect(context) {
         lateinit var engine: TextToSpeech
         engine = TextToSpeech(context) { status ->
@@ -187,20 +200,31 @@ private fun GameScreen(
             secondsLeft--
         }
     }
+    val modeBrush = when (state.mode) {
+        GameMode.RED_ROOM -> Brush.verticalGradient(listOf(DeepRed, Ink, Color.Black))
+        GameMode.ROYAL -> Brush.verticalGradient(listOf(Color(0xFF201706), Ink, Color.Black))
+        GameMode.CHAOS -> Brush.verticalGradient(listOf(Purple, Ink, Color.Black))
+        GameMode.CLASSIC -> Brush.verticalGradient(listOf(Color(0xFF101018), Ink, Color.Black))
+    }
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
+        modifier = Modifier.fillMaxSize().background(modeBrush).padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("EXPERIENCE OF ROYAL TRUTH", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 Text("Runda ${state.round + 1}  •  seria ${state.streak}  •  rekord ${state.bestStreak}", color = Muted, fontSize = 13.sp)
+                if (targetIndex != null) Text("CEL: ${state.players.getOrNull(targetIndex!!)?.name ?: "—"}", color = if (state.mode == GameMode.RED_ROOM) Color(0xFFFF718F) else Gold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = onEdit) { Text("Edytor", color = Gold) }
             TextButton(onClick = onSafety) { Text("Zasady", color = Gold) }
             TextButton(onClick = onExit) { Text("Wyjdź", color = Muted) }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = 0.88f)),
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.border(1.dp, if (state.mode == GameMode.RED_ROOM) RoyalRed else Gold.copy(alpha = .28f), RoundedCornerShape(22.dp))
+        ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("TERAZ GRA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 Text(state.currentPlayer?.name ?: "—", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
@@ -227,13 +251,14 @@ private fun GameScreen(
         }
         AnimatedContent(
             targetState = state.currentPrompt,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            transitionSpec = { (fadeIn() + scaleIn(initialScale = .94f)) togetherWith (fadeOut() + scaleOut(targetScale = 1.04f)) },
             label = "prompt"
         ) { prompt ->
             Card(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2A101F)),
-                shape = RoundedCornerShape(24.dp)
+                colors = CardDefaults.cardColors(containerColor = if (state.mode == GameMode.RED_ROOM) Color(0xFF330713) else Color(0xFF2A101F)),
+                shape = RoundedCornerShape(30.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
                 Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     if (prompt == null) {
@@ -261,16 +286,22 @@ private fun GameScreen(
                 GoldButton("PRAWDA", Modifier.weight(1f)) { onState(GameEngine.draw(state, PromptKind.TRUTH)) }
                 GoldButton("WYZWANIE", Modifier.weight(1f)) { onState(GameEngine.draw(state, PromptKind.DARE)) }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { dice = GameEngine.rollDice() }, modifier = Modifier.weight(1f)) { Text("🎲  KOŚĆ" + (dice?.let { "  $it" } ?: ""), color = Gold) }
+                TextButton(onClick = { targetIndex = GameEngine.pickTarget(state) }, modifier = Modifier.weight(1f)) { Text("♛  RULETKA CELU", color = Gold) }
+            }
             OutlinedAction("KOŁO DECYZJI") {
                 val kind = if (kotlin.random.Random.nextBoolean()) PromptKind.TRUTH else PromptKind.DARE
                 onState(GameEngine.draw(state, kind))
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedAction("POMIŃ") { onState(GameEngine.skip(state)) }
+                OutlinedAction("POMIŃ") { onState(GameEngine.skip(state)); targetIndex = null; dice = null }
                 GoldButton("WYKONANO  +${state.currentPrompt?.points ?: 0}", Modifier.weight(1.5f)) {
                     val points = state.currentPrompt?.points ?: 0
                     onState(GameEngine.nextPlayer(GameEngine.award(state, points)))
+                    targetIndex = null
+                    dice = null
                 }
             }
             OutlinedAction("NASTĘPNY GRACZ") { onState(GameEngine.nextPlayer(state)) }
