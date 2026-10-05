@@ -39,7 +39,7 @@ jobs:
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee apk-badging.txt
-          grep -q "package: name='pl.mojealterego.prawda'" apk-badging.txt
+          grep -q "package: name='pl.mojealterego.royaltruth'" apk-badging.txt
           grep -q "application-label:'Experience of Royal Truth'" apk-badging.txt
       - name: Verify APK archive integrity
         run: |
