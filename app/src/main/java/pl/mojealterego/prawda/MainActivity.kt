@@ -1,6 +1,8 @@
 package pl.mojealterego.prawda
 
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -37,6 +39,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -163,6 +166,27 @@ private fun GameScreen(
     onEdit: () -> Unit,
     onExit: () -> Unit
 ) {
+    val context = LocalContext.current
+    var secondsLeft by remember(state.currentPrompt?.id, state.pace) { mutableStateOf(state.pace.seconds) }
+    var autoSpeak by remember { mutableStateOf(false) }
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(context) {
+        lateinit var engine: TextToSpeech
+        engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) engine.language = Locale("pl", "PL")
+        }
+        tts = engine
+        onDispose { engine.stop(); engine.shutdown() }
+    }
+    LaunchedEffect(state.currentPrompt?.id, state.pace, autoSpeak) {
+        secondsLeft = state.pace.seconds
+        val active = state.currentPrompt
+        if (autoSpeak && active != null) tts?.speak(active.text, TextToSpeech.QUEUE_FLUSH, null, active.id)
+        while (active != null && secondsLeft > 0) {
+            kotlinx.coroutines.delay(1000)
+            secondsLeft--
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -170,7 +194,7 @@ private fun GameScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("EXPERIENCE OF ROYAL TRUTH", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                Text("Runda ${state.round + 1}", color = Muted, fontSize = 13.sp)
+                Text("Runda ${state.round + 1}  •  seria ${state.streak}  •  rekord ${state.bestStreak}", color = Muted, fontSize = 13.sp)
             }
             TextButton(onClick = onEdit) { Text("Edytor", color = Gold) }
             TextButton(onClick = onSafety) { Text("Zasady", color = Gold) }
@@ -182,7 +206,7 @@ private fun GameScreen(
                 Text(state.currentPlayer?.name ?: "—", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GameMode.entries.forEach { mode ->
-                        ChoicePill(mode.name.lowercase().replaceFirstChar { it.uppercase() }, state.mode == mode) {
+                        ChoicePill(when(mode) { GameMode.CLASSIC -> "Classic"; GameMode.CHAOS -> "Chaos"; GameMode.ROYAL -> "Royal"; GameMode.RED_ROOM -> "Red Room" }, state.mode == mode) {
                             onState(state.copy(mode = mode, currentPrompt = null))
                         }
                     }
@@ -192,6 +216,11 @@ private fun GameScreen(
                         ChoicePill(intensity.label, state.intensity == intensity) {
                             onState(state.copy(intensity = intensity, currentPrompt = null))
                         }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ChallengePace.entries.forEach { pace ->
+                        ChoicePill(pace.label, state.pace == pace) { onState(state.copy(pace = pace)) }
                     }
                 }
             }
@@ -217,7 +246,11 @@ private fun GameScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
                             Text(if (prompt.royal) "KARTA KRÓLEWSKA" else if (prompt.kind == PromptKind.TRUTH) "PRAWDA" else "WYZWANIE", color = Gold, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
                             Text(prompt.text, color = Cream, fontSize = 24.sp, textAlign = TextAlign.Center, lineHeight = 32.sp)
-                            Text("+${prompt.points} pkt za wykonanie", color = Muted, fontSize = 12.sp)
+                            Text("+${prompt.points} pkt  •  ${secondsLeft}s", color = Muted, fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { tts?.speak(prompt.text, TextToSpeech.QUEUE_FLUSH, null, prompt.id) }) { Text("CZYTAJ", color = Gold) }
+                                TextButton(onClick = { autoSpeak = !autoSpeak }) { Text(if (autoSpeak) "AUTO ✓" else "AUTO", color = if (autoSpeak) Gold else Muted) }
+                            }
                         }
                     }
                 }
@@ -245,7 +278,9 @@ private fun GameScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("PUNKTY", color = Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Spacer(Modifier.width(10.dp))
-            Text(state.players.joinToString("   ") { "${it.name}: ${it.score}" }, color = Muted, fontSize = 12.sp)
+            Text(state.players.sortedByDescending { it.score }.joinToString("   ") { "${it.name}: ${it.score}" }, color = Muted, fontSize = 12.sp)
+            Spacer(Modifier.weight(1f))
+            Text("✓${state.totalCompleted}  ↷${state.totalSkipped}", color = Muted, fontSize = 11.sp)
         }
     }
 }
