@@ -19,12 +19,17 @@ object GamePersistence {
         }
         val root = JSONObject()
         root.put("players", JSONArray().apply {
-            state.players.forEach { put(JSONObject().put("name", it.name).put("score", it.score)) }
+            state.players.forEach { put(JSONObject().put("name", it.name).put("score", it.score).put("completed", it.completed).put("skipped", it.skipped)) }
         })
         root.put("activePlayer", state.activePlayer)
         root.put("mode", state.mode.name)
         root.put("intensity", state.intensity.name)
         root.put("round", state.round)
+        root.put("pace", state.pace.name)
+        root.put("streak", state.streak)
+        root.put("bestStreak", state.bestStreak)
+        root.put("totalCompleted", state.totalCompleted)
+        root.put("totalSkipped", state.totalSkipped)
         root.put("history", JSONArray().apply { state.history.forEach { put(it) } })
         root.put("customPrompts", JSONArray().apply {
             state.customPrompts.forEach { put(it.toJson()) }
@@ -48,7 +53,7 @@ object GamePersistence {
             val playersJson = root.getJSONArray("players")
             val players = (0 until playersJson.length()).map { i ->
                 val item = playersJson.getJSONObject(i)
-                Player(item.getString("name"), item.optInt("score", 0))
+                Player(item.getString("name"), item.optInt("score", 0), item.optInt("completed", 0), item.optInt("skipped", 0))
             }
             if (players.isEmpty()) return null
             val historyJson = root.optJSONArray("history") ?: JSONArray()
@@ -62,6 +67,11 @@ object GamePersistence {
                 currentPrompt = promptJson?.toPrompt(),
                 history = (0 until historyJson.length()).map { historyJson.getString(it) }.toSet(),
                 round = root.optInt("round", 0).coerceAtLeast(0),
+                pace = enumValueOr(root.optString("pace"), ChallengePace.STANDARD),
+                streak = root.optInt("streak", 0).coerceAtLeast(0),
+                bestStreak = root.optInt("bestStreak", 0).coerceAtLeast(0),
+                totalCompleted = root.optInt("totalCompleted", 0).coerceAtLeast(0),
+                totalSkipped = root.optInt("totalSkipped", 0).coerceAtLeast(0),
                 customPrompts = (0 until customJson.length()).mapNotNull { i ->
                     runCatching { customJson.getJSONObject(i).toPrompt() }.getOrNull()
                 }
