@@ -112,4 +112,17 @@ class GameEngineTest {
         assertEquals(1, skipped.totalSkipped)
         assertEquals(1, skipped.players.first().skipped)
     }
+    @Test fun diceProducesOnlyOneToSix() {
+        repeat(200) { seed -> assertTrue(GameEngine.rollDice(Random(seed)) in 1..6) }
+    }
+
+    @Test fun targetRouletteNeverTargetsActivePlayerWhenAlternativesExist() {
+        val state = GameState(players = listOf(Player("A"), Player("B"), Player("C")), activePlayer = 1)
+        repeat(100) { seed -> assertNotEquals(1, GameEngine.pickTarget(state, Random(seed))) }
+    }
+
+    @Test fun targetRouletteReturnsActivePlayerForSoloGame() {
+        val state = GameState(players = listOf(Player("Solo")), activePlayer = 0)
+        assertEquals(0, GameEngine.pickTarget(state, Random(1)))
+    }
 }
