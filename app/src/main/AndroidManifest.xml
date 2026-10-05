@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="true"
-        android:label="Experience of Royal Truth"
+        android:label="Experience of Royal Truth"\n        android:icon="@drawable/ic_launcher_royal"\n        android:roundIcon="@drawable/ic_launcher_royal"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
