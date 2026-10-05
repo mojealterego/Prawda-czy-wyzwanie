@@ -78,7 +78,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PrawdaApp() {
     val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
     var state by remember(context) { mutableStateOf(GamePersistence.load(context) ?: GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")), customPrompts = GamePersistence.loadCustomPrompts(context))) }
     var started by remember { mutableStateOf(GamePersistence.load(context) != null) }
     val names = remember { mutableStateListOf("Gracz 1", "Gracz 2") }
@@ -216,6 +215,7 @@ private fun GameScreen(
     onExit: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var secondsLeft by remember(state.currentPrompt?.id, state.pace) { mutableStateOf(state.pace.seconds) }
     var autoSpeak by remember { mutableStateOf(false) }
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
