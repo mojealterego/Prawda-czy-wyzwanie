@@ -92,4 +92,24 @@ class GameEngineTest {
         val draw = GameEngine.draw(state, PromptKind.TRUTH, Random(7))
         assertNotEquals("user-bold", draw.currentPrompt?.id)
     }
+    @Test fun redRoomOnlyDrawsBoldCards() {
+        val state = GameState(players = listOf(Player("A")), mode = GameMode.RED_ROOM, intensity = Intensity.EASY)
+        repeat(30) { seed ->
+            val draw = GameEngine.draw(state.copy(history = emptySet()), PromptKind.DARE, Random(seed))
+            assertEquals(Intensity.BOLD, draw.currentPrompt?.intensity)
+        }
+    }
+
+    @Test fun awardBuildsStreakAndSkipResetsIt() {
+        val state = GameState(players = listOf(Player("A")))
+        val awarded = GameEngine.award(GameEngine.award(state, 2), 3)
+        assertEquals(2, awarded.streak)
+        assertEquals(2, awarded.bestStreak)
+        assertEquals(2, awarded.totalCompleted)
+        assertEquals(2, awarded.players.first().completed)
+        val skipped = GameEngine.skip(awarded)
+        assertEquals(0, skipped.streak)
+        assertEquals(1, skipped.totalSkipped)
+        assertEquals(1, skipped.players.first().skipped)
+    }
 }
