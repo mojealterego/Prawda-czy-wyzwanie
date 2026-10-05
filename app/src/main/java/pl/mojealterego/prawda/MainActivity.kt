@@ -47,6 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -76,12 +78,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PrawdaApp() {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var state by remember(context) { mutableStateOf(GamePersistence.load(context) ?: GameState(players = listOf(Player("Gracz 1"), Player("Gracz 2")), customPrompts = GamePersistence.loadCustomPrompts(context))) }
     var started by remember { mutableStateOf(GamePersistence.load(context) != null) }
     val names = remember { mutableStateListOf("Gracz 1", "Gracz 2") }
     var newName by remember { mutableStateOf("") }
     var safetyVisible by remember { mutableStateOf(false) }
     var editorVisible by remember { mutableStateOf(false) }
+    var summaryVisible by remember { mutableStateOf(false) }
+    var panicVisible by remember { mutableStateOf(false) }
     var adultConfirmed by remember { mutableStateOf(false) }
 
     LaunchedEffect(state, started) { GamePersistence.save(context, state, started) }
@@ -142,8 +147,39 @@ private fun PrawdaApp() {
                     onState = { state = it },
                     onSafety = { safetyVisible = true },
                     onEdit = { editorVisible = true },
+                    onPanic = { panicVisible = true },
+                    onFinish = { summaryVisible = true },
                     onExit = { started = false }
                 )
+                if (panicVisible) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { panicVisible = false },
+                        containerColor = Color(0xFF24030A),
+                        title = { Text("SAFE WORD", color = Color(0xFFFF718F), fontWeight = FontWeight.Bold) },
+                        text = { Text("Gra została zatrzymana. Nie ma punktów ujemnych ani kary. Wznówcie dopiero wtedy, gdy wszyscy uczestnicy wyrażą zgodę.", color = Cream) },
+                        confirmButton = { GoldButton("WRÓĆ DO GRY") { panicVisible = false } },
+                        dismissButton = { TextButton(onClick = { panicVisible = false; started = false }) { Text("ZAKOŃCZ SESJĘ", color = Muted) } }
+                    )
+                }
+                if (summaryVisible) {
+                    val ranking = GameEngine.leaderboard(state)
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { summaryVisible = false },
+                        containerColor = Panel,
+                        title = { Text("FINAŁ SESJI", color = Gold, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Rundy: ${state.round}  •  wykonane: ${state.totalCompleted}  •  pominięte: ${state.totalSkipped}", color = Muted)
+                                ranking.forEachIndexed { index, player ->
+                                    Text("${index + 1}. ${player.name}   ${player.score} pkt   ✓${player.completed}", color = if (index == 0) Gold else Cream, fontSize = if (index == 0) 18.sp else 15.sp, fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal)
+                                }
+                                Text("Najlepsza seria: ${state.bestStreak}", color = Muted)
+                            }
+                        },
+                        confirmButton = { GoldButton("NOWA SESJA") { state = GameEngine.restartSession(state); summaryVisible = false } },
+                        dismissButton = { TextButton(onClick = { summaryVisible = false; started = false }) { Text("WYJDŹ", color = Muted) } }
+                    )
+                }
                 if (editorVisible) {
                     PromptEditorDialog(existing = state.customPrompts, onDismiss = { editorVisible = false },
                         onDelete = { id -> state = state.copy(customPrompts = state.customPrompts.filterNot { it.id == id }) },
@@ -175,6 +211,8 @@ private fun GameScreen(
     onState: (GameState) -> Unit,
     onSafety: () -> Unit,
     onEdit: () -> Unit,
+    onPanic: () -> Unit,
+    onFinish: () -> Unit,
     onExit: () -> Unit
 ) {
     val context = LocalContext.current
@@ -217,7 +255,9 @@ private fun GameScreen(
                 if (targetIndex != null) Text("CEL: ${state.players.getOrNull(targetIndex!!)?.name ?: "—"}", color = if (state.mode == GameMode.RED_ROOM) Color(0xFFFF718F) else Gold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = onEdit) { Text("Edytor", color = Gold) }
+            TextButton(onClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onPanic() }) { Text("SAFE", color = Color(0xFFFF718F), fontWeight = FontWeight.Bold) }
             TextButton(onClick = onSafety) { Text("Zasady", color = Gold) }
+            TextButton(onClick = onFinish) { Text("Finał", color = Gold) }
             TextButton(onClick = onExit) { Text("Wyjdź", color = Muted) }
         }
         Card(
@@ -283,8 +323,8 @@ private fun GameScreen(
         }
         if (state.currentPrompt == null) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GoldButton("PRAWDA", Modifier.weight(1f)) { onState(GameEngine.draw(state, PromptKind.TRUTH)) }
-                GoldButton("WYZWANIE", Modifier.weight(1f)) { onState(GameEngine.draw(state, PromptKind.DARE)) }
+                GoldButton("PRAWDA", Modifier.weight(1f)) { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onState(GameEngine.draw(state, PromptKind.TRUTH)) }
+                GoldButton("WYZWANIE", Modifier.weight(1f)) { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onState(GameEngine.draw(state, PromptKind.DARE)) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { dice = GameEngine.rollDice() }, modifier = Modifier.weight(1f)) { Text("🎲  KOŚĆ" + (dice?.let { "  $it" } ?: ""), color = Gold) }
