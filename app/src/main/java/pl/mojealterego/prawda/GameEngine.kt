@@ -2,7 +2,8 @@ package pl.mojealterego.prawda
 
 import kotlin.random.Random
 
-enum class GameMode { CLASSIC, CHAOS, ROYAL }
+enum class GameMode { CLASSIC, CHAOS, ROYAL, RED_ROOM }
+enum class ChallengePace(val label: String, val seconds: Int) { RELAXED("Spokojny", 90), STANDARD("Standard", 60), RUSH("Panic", 45) }
 enum class Intensity(val label: String) { EASY("Lekki"), MEDIUM("Średni"), BOLD("Odważny") }
 enum class PromptKind { TRUTH, DARE }
 
@@ -15,7 +16,7 @@ data class Prompt(
     val royal: Boolean = false
 )
 
-data class Player(val name: String, val score: Int = 0)
+data class Player(val name: String, val score: Int = 0, val completed: Int = 0, val skipped: Int = 0)
 
 data class GameState(
     val players: List<Player>,
@@ -25,7 +26,12 @@ data class GameState(
     val currentPrompt: Prompt? = null,
     val history: Set<String> = emptySet(),
     val round: Int = 0,
-    val customPrompts: List<Prompt> = emptyList()
+    val customPrompts: List<Prompt> = emptyList(),
+    val pace: ChallengePace = ChallengePace.STANDARD,
+    val streak: Int = 0,
+    val bestStreak: Int = 0,
+    val totalCompleted: Int = 0,
+    val totalSkipped: Int = 0
 ) {
     val currentPlayer: Player? get() = players.getOrNull(activePlayer)
 }
@@ -179,7 +185,8 @@ object GameEngine {
     fun draw(state: GameState, kind: PromptKind, random: Random = Random): GameState {
         fun available(history: Set<String>) = (prompts + state.customPrompts).filter { prompt ->
             prompt.kind == kind &&
-                (state.mode == GameMode.CHAOS || prompt.intensity.ordinal <= state.intensity.ordinal) &&
+                (state.mode == GameMode.CHAOS || state.mode == GameMode.RED_ROOM || prompt.intensity.ordinal <= state.intensity.ordinal) &&
+                (state.mode != GameMode.RED_ROOM || prompt.intensity == Intensity.BOLD) &&
                 (state.mode == GameMode.ROYAL || !prompt.royal) &&
                 prompt.id !in history
         }
@@ -211,11 +218,18 @@ object GameEngine {
         if (state.players.isEmpty()) return state
         val updated = state.players.toMutableList()
         val player = updated[state.activePlayer]
-        updated[state.activePlayer] = player.copy(score = (player.score + points).coerceAtLeast(0))
-        return state.copy(players = updated)
+        updated[state.activePlayer] = player.copy(score = (player.score + points).coerceAtLeast(0), completed = player.completed + 1)
+        val streak = state.streak + 1
+        return state.copy(players = updated, streak = streak, bestStreak = maxOf(state.bestStreak, streak), totalCompleted = state.totalCompleted + 1)
     }
 
-    fun skip(state: GameState): GameState = state.copy(currentPrompt = null)
+    fun skip(state: GameState): GameState {
+        if (state.players.isEmpty()) return state.copy(currentPrompt = null, streak = 0, totalSkipped = state.totalSkipped + 1)
+        val updated = state.players.toMutableList()
+        val player = updated[state.activePlayer]
+        updated[state.activePlayer] = player.copy(skipped = player.skipped + 1)
+        return state.copy(players = updated, currentPrompt = null, streak = 0, totalSkipped = state.totalSkipped + 1)
+    }
 
     fun nextPlayer(state: GameState): GameState {
         if (state.players.isEmpty()) return state
